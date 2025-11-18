@@ -40,3 +40,9 @@ from legged_gym.utils.task_registry import task_registry
 
 task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 
+
+
+
+from legged_gym.envs.a1.a1_rewhimloco_rl_config import A1HimlocoCfg, A1HimlocoCfgPPO
+from legged_gym.envs.collect.env_rew_himloco import CollectEnvHimlocoRew
+task_registry.register( "a1rl_himloco", CollectEnvHimlocoRew, A1HimlocoCfg(), A1HimlocoCfgPPO() )
