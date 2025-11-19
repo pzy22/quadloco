@@ -230,7 +230,7 @@ class BaseGaitCfgPPO(BaseConfig):
     class runner:
         policy_class_name = 'ActorCritic'
         algorithm_class_name = 'PPO'
-        num_steps_per_env = 50 # per iteration
+        num_steps_per_env = 100 # per iteration
         # max_iterations = 200000 # number of policy updates
         max_iterations = 3000
 
