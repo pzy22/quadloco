@@ -23,30 +23,39 @@ class A1GaitCfg(BaseGaitCfg):
     class control( BaseGaitCfg.control ):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 20.}
-        damping = {'joint': 0.5}
+        stiffness = {'joint': 40.0}  # [N*m/rad]
+        damping = {'joint': 1.0}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
+        hip_reduction = 1.0
+
+    class commands( BaseGaitCfg.commands ):
+            curriculum = True
+            max_curriculum = 1.0
+            num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+            resampling_time = 10. # time before command are changed[s]
+            heading_command = True # if true: compute ang vel command from heading error
+            class ranges( BaseGaitCfg.commands.ranges):
+                lin_vel_x = [-0.5, 0.5] # min max [m/s]
+                lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+                ang_vel_yaw = [-1.57, 1.57]    # min max [rad/s]
+                heading = [-3.14, 3.14]
+
 
     class asset( BaseGaitCfg.asset ):
         file = '{LEGGED_GYM_ROOT_DIR}/legged_gym/resources/robots/a1/urdf/a1.urdf'
         name = "a1"
         foot_name = "foot"
-        penalize_contacts_on = ["thigh", "calf"]
+        penalize_contacts_on = ["thigh", "calf", "base"]
         terminate_after_contacts_on = ["base"]
+        privileged_contacts_on = ["base", "thigh", "calf"]
         self_collisions = 1 # 1 to disable, 0 to enable...bitwise filter
+        flip_visual_attachments = True # Some .obj meshes must be flipped from y-up to z-up
 
     class rewards( BaseGaitCfg.rewards ):
-        only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
-        tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
-        soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
-        soft_dof_vel_limit = 1.
-        soft_torque_limit = 1.
-        base_height_target = 0.30
-        max_contact_force = 100. # forces above this value are penalized
-        clearance_height_target = -0.20
+
         class scales( BaseGaitCfg.rewards.scales ):
             termination = -0.0
             tracking_lin_vel = 1.0
@@ -66,9 +75,18 @@ class A1GaitCfg(BaseGaitCfg):
             stand_still = -0.
             torques = -0.0
             dof_vel = -0.0
-            dof_pos_limits = 0.0
-            dof_vel_limits = 0.0
-            torque_limits = 0.0
+            dof_pos_limits = -0.0
+            dof_vel_limits = -0.0
+            torque_limits = -0.0
+
+        only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
+        tracking_sigma = 0.25 # tracking reward = exp(-error^2/sigma)
+        soft_dof_pos_limit = 1. # percentage of urdf limits, values above this limit are penalized
+        soft_dof_vel_limit = 1.
+        soft_torque_limit = 1.
+        base_height_target = 0.30
+        max_contact_force = 100. # forces above this value are penalized
+        clearance_height_target = -0.2
 
 class A1GaitCfgPPO( BaseGaitCfgPPO ):
     class algorithm( BaseGaitCfgPPO.algorithm ):

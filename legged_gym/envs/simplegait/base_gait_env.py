@@ -492,15 +492,17 @@ class BaseGaitEnv(BaseTask):
         Args:
             env_ids (List[int]): ids of environments being reset
         """
-        low_vel_env_ids = (env_ids > (self.num_envs * 0.2))
-        high_vel_env_ids = (env_ids < (self.num_envs * 0.2))
-        low_vel_env_ids = env_ids[low_vel_env_ids.nonzero(as_tuple=True)]
-        high_vel_env_ids = env_ids[high_vel_env_ids.nonzero(as_tuple=True)]
-        # If the tracking reward is above 80% of the maximum, increase the range of commands
-        if (torch.mean(self.episode_sums["tracking_lin_vel"][low_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]) and (torch.mean(self.episode_sums["tracking_lin_vel"][high_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]):
-            self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.2, -self.cfg.commands.max_curriculum, 0.)
-            self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.2, 0., self.cfg.commands.max_curriculum)
-
+        # low_vel_env_ids = (env_ids > (self.num_envs * 0.2))
+        # high_vel_env_ids = (env_ids < (self.num_envs * 0.2))
+        # low_vel_env_ids = env_ids[low_vel_env_ids.nonzero(as_tuple=True)]
+        # high_vel_env_ids = env_ids[high_vel_env_ids.nonzero(as_tuple=True)]
+        # # If the tracking reward is above 80% of the maximum, increase the range of commands
+        # if (torch.mean(self.episode_sums["tracking_lin_vel"][low_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]) and (torch.mean(self.episode_sums["tracking_lin_vel"][high_vel_env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]):
+        #     self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.2, -self.cfg.commands.max_curriculum, 0.)
+        #     self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.2, 0., self.cfg.commands.max_curriculum)
+        if torch.mean(self.episode_sums["tracking_lin_vel"][env_ids]) / self.max_episode_length > 0.8 * self.reward_scales["tracking_lin_vel"]:
+            self.command_ranges["lin_vel_x"][0] = np.clip(self.command_ranges["lin_vel_x"][0] - 0.1, -self.cfg.commands.max_curriculum, 0.)
+            self.command_ranges["lin_vel_x"][1] = np.clip(self.command_ranges["lin_vel_x"][1] + 0.1, 0., self.cfg.commands.max_curriculum)
 
     def _get_noise_scale_vec(self, cfg):
         """ Sets a vector used to scale the noise added to the observations.
