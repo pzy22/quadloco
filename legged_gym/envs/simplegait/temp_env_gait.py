@@ -1,16 +1,17 @@
 import os
 from isaacgym import gymtorch, gymapi, gymutil
-from isaacgym.torch_utils import to_torch, torch_rand_float
+from isaacgym.torch_utils import to_torch, torch_rand_float, get_axis_params, quat_rotate_inverse
 from legged_gym import LEGGED_GYM_ROOT_DIR
 from legged_gym.envs.base.base_task import BaseTask
 from legged_gym.utils.helpers import class_to_dict
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
 from legged_gym.utils.terrain import Terrain
+from legged_gym.utils.math import get_euler_xyz
 
 import torch
 import numpy as np
 
-class SingleGaitEnv(BaseTask):
+class TempGaitBaseEnv(BaseTask):
     def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
         self.cfg = cfg
         self.sim_params = sim_params
@@ -24,6 +25,137 @@ class SingleGaitEnv(BaseTask):
         self._init_buffers()
         self._prepare_reward_function()
         self.init_done = True
+
+
+
+    def reset_idx(self, env_ids):
+        
+        if len(env_ids) == 0:
+            return
+
+        if self.cfg.terrain.curriculum:
+            self._update_terrain_curriculum(env_ids)
+
+        if self.cfg.commands.curriculum and (self.common_step_counter % self.max_episode_length==0):
+            self.update_command_curriculum(env_ids)
+
+
+    def _init_buffers(self):
+        # get gym GPU state tensors
+        actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
+        dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
+        net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim)
+        rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim)
+
+        self.gym.refresh_dof_state_tensor(self.sim)
+        self.gym.refresh_actor_root_state_tensor(self.sim)
+        self.gym.refresh_net_contact_force_tensor(self.sim)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
+
+        # create some wrapper tensors for different slices
+        self.root_states = gymtorch.wrap_tensor(actor_root_state) #基坐标 的位置和四元数线速度角速度
+        self.dof_state = gymtorch.wrap_tensor(dof_state_tensor) #关节位置和速度
+        self.dof_pos = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 0] #关节位置
+        self.dof_vel = self.dof_state.view(self.num_envs, self.num_dof, 2)[..., 1] #关节速度
+        self.base_quat = self.root_states[:, 3:7] #基坐标 四元数
+        self.base_euler_xyz = get_euler_xyz(self.base_quat) #基坐标 欧拉角
+
+        self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) #shape: num_envs, num_bodies, xyz axis
+        self.rigid_state = gymtorch.wrap_tensor(rigid_body_state).view(self.num_envs, -1, 13) #shape: num_envs, num_bodies, 13 (pos, quat, lin vel, ang vel)
+        self.feet_vel = self.rigid_state[:, self.feet_indices, 7:10] #脚部速度
+        self.feet_pos = self.rigid_state[:, self.feet_indices, 0:3] #脚部位置
+
+         # initialize some data used later on
+        self.common_step_counter = 0
+        self.extras = {}
+        self.noise_scale_vec = self._get_noise_scale_vec(self.cfg)
+        
+        self.gravity_vec = to_torch(get_axis_params(-1., self.up_axis_idx), device=self.device).repeat((self.num_envs, 1))
+        self.forward_vec = to_torch([1., 0., 0.], device=self.device).repeat((self.num_envs, 1))
+        self.torques = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.p_gains = torch.zeros(self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.d_gains = torch.zeros(self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_last_actions = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        
+        self.last_rigid_state = torch.zeros_like(self.rigid_state)
+        self.last_dof_vel = torch.zeros_like(self.dof_vel)
+        self.last_root_vel = torch.zeros_like(self.root_states[:, 7:13])
+        
+        self.commands = torch.zeros(self.num_envs, self.cfg.commands.num_commands, dtype=torch.float, device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
+        self.commands_scale = torch.tensor([self.obs_scales.lin_vel, self.obs_scales.lin_vel, self.obs_scales.ang_vel], device=self.device, requires_grad=False,) # TODO change this
+        
+        self.feet_air_time = torch.zeros(self.num_envs, self.feet_indices.shape[0], dtype=torch.float, device=self.device, requires_grad=False)
+        self.last_contacts = torch.zeros(self.num_envs, len(self.feet_indices), dtype=torch.bool, device=self.device, requires_grad=False)
+        
+        self.base_lin_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 7:10])
+        self.base_ang_vel = quat_rotate_inverse(self.base_quat, self.root_states[:, 10:13])
+        self.last_base_lin_vel = torch.zeros_like(self.base_lin_vel)
+        self.last_base_ang_vel = torch.zeros_like(self.base_ang_vel)
+        self.projected_gravity = quat_rotate_inverse(self.base_quat, self.gravity_vec)
+
+        # [NOTE] 测量足端周围地形信息
+        if self.cfg.terrain.obtain_terrain_info_around_feet:
+            self.normal_vector_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices) * 3, dtype=torch.float, device=self.device, requires_grad=False)
+            self.height_around_feet = torch.zeros(
+                self.num_envs, len(self.feet_indices), 9, dtype=torch.float, device=self.device, requires_grad=False)
+        
+        # [NOTE] 记录接触状态
+        if self.cfg.asset.obtain_link_contact_states:
+            self.link_contact_states = torch.zeros(
+                self.num_envs, len(self.contact_state_link_indices), dtype=torch.float, device=self.device, requires_grad=False)
+ 
+        if self.cfg.terrain.measure_heights:
+            self.height_points = self._init_height_points()
+        self.measured_heights = 0
+
+        # joint positions offsets and PD gains
+        self.default_dof_pos = torch.zeros(self.num_dof, dtype=torch.float, device=self.device, requires_grad=False)
+        for i in range(self.num_dofs):
+            name = self.dof_names[i]
+            angle = self.cfg.init_state.default_joint_angles[name]
+            self.default_dof_pos[i] = angle
+            found = False
+            for dof_name in self.cfg.control.stiffness.keys():
+                if dof_name in name:
+                    self.p_gains[i] = self.cfg.control.stiffness[dof_name]
+                    self.d_gains[i] = self.cfg.control.damping[dof_name]
+                    found = True
+            if not found:
+                self.p_gains[i] = 0.
+                self.d_gains[i] = 0.
+                if self.cfg.control.control_type in ["P", "V"]:
+                    print(f"PD gain of joint {name} were not defined, setting them to zero")
+        self.default_dof_pos = self.default_dof_pos.unsqueeze(0)
+        # [NOTE] 可以添加Latency Buffer
+
+
+    def _prepare_reward_function(self):
+        """ Prepares a list of reward functions, whcih will be called to compute the total reward.
+            Looks for self._reward_<REWARD_NAME>, where <REWARD_NAME> are names of all non zero reward scales in the cfg.
+        """
+        # remove zero scales + multiply non-zero ones by dt
+        for key in list(self.reward_scales.keys()):
+            scale = self.reward_scales[key]
+            if scale==0:
+                self.reward_scales.pop(key) 
+            else:
+                self.reward_scales[key] *= self.dt
+        # prepare list of functions
+        self.reward_functions = []
+        self.reward_names = []
+        for name, scale in self.reward_scales.items():
+            if name=="termination":
+                continue
+            self.reward_names.append(name)
+            name = '_reward_' + name
+            self.reward_functions.append(getattr(self, name))
+
+        # reward episode sums
+        self.episode_sums = {name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+                             for name in self.reward_scales.keys()}
 
     def create_sim(self):
         self.up_axis_idx = 2 # 2 for z, 1 for y -> adapt gravity accordingly
@@ -152,7 +284,7 @@ class SingleGaitEnv(BaseTask):
             pos = self.env_origins[i].clone()
             pos[:2] += torch_rand_float(-1., 1., (2,1), device=self.device).squeeze(1)
             start_pose.p = gymapi.Vec3(*pos)
-                
+
             rigid_shape_props = self._process_rigid_shape_props(rigid_shape_props_asset, i)
             self.gym.set_asset_rigid_shape_properties(robot_asset, rigid_shape_props)
             actor_handle = self.gym.create_actor(env_handle, robot_asset, start_pose, self.cfg.asset.name, i, self.cfg.asset.self_collisions_gym, 0)
@@ -221,6 +353,7 @@ class SingleGaitEnv(BaseTask):
 
 
     def _init_domain_params(self):
+
         self.friction_coeffs = None
         self.restitution_coeffs = None
 
@@ -237,6 +370,12 @@ class SingleGaitEnv(BaseTask):
         
         self.motor_zero_offsets = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device,
                                          requires_grad=False)
+
+    def set_camera(self, position, lookat):
+
+        cam_pos = gymapi.Vec3(position[0], position[1], position[2])
+        cam_target = gymapi.Vec3(lookat[0], lookat[1], lookat[2])
+        self.gym.viewer_camera_look_at(self.viewer, None, cam_pos, cam_target)
 
 
     def _process_rigid_shape_props(self, props, env_id):
@@ -325,3 +464,34 @@ class SingleGaitEnv(BaseTask):
                                     self.added_base_com[0, 2])
 
         return props
+    
+
+    def _init_height_points(self):
+        """ Returns points at which the height measurments are sampled (in base frame)
+
+        Returns:
+            [torch.Tensor]: Tensor of shape (num_envs, self.num_height_points, 3)
+        """
+        y = torch.tensor(self.cfg.terrain.measured_points_y,
+                         device=self.device, requires_grad=False)
+        x = torch.tensor(self.cfg.terrain.measured_points_x,
+                         device=self.device, requires_grad=False)
+        # Get index of 4 points around robot base
+        self.num_x_points = x.shape[0]
+        self.num_y_points = y.shape[0]
+        self.front_point_index = (self.num_x_points // 2 + 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x+2*horizontal_scale, base_pos_y]
+        self.rear_point_index = (self.num_x_points // 2 - 2) * self.num_y_points \
+            + (self.num_y_points - 1) // 2 # [base_pos_x-2*horizontal_scale, base_pos_y]
+        self.left_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 + 1   # [base_pos_x, base_pos_y+horizontal_scale]
+        self.right_point_index = self.num_x_points // 2 * self.num_y_points \
+            + self.num_y_points // 2 - 1   # [base_pos_x, base_pos_y-horizontal_scale]
+        
+        grid_x, grid_y = torch.meshgrid(x, y, indexing='ij')
+
+        self.num_height_points = grid_x.numel()
+        self.height_points = torch.zeros(self.num_envs, self.num_height_points,
+                             3, device=self.device, requires_grad=False)
+        self.height_points[:, :, 0] = grid_x.flatten()
+        self.height_points[:, :, 1] = grid_y.flatten()
