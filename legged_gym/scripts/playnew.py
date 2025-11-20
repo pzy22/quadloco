@@ -28,7 +28,7 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
     env_cfg.domain_rand.push_robots = False
     env_cfg.commands.heading_command = False
     env_cfg.commands.resampling_time = env_cfg.env.episode_length_s
-    # env_cfg.terrain.mesh_type = 'plane'
+
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     env.commands[:, 0] = x_vel
@@ -76,7 +76,7 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
         env.commands[:, 1] = y_vel
         env.commands[:, 2] = yaw_vel
         obs, _, rews, dones, infos = env.step(actions.detach())
-        # obs, _, rews, dones, infos = env.step(torch.zeros_like(actions.detach()))
+        #obs, _, rews, dones, infos = env.step(torch.zeros_like(actions.detach()))
         height = env._get_base_heights()
         print(f"height.shape: {height.shape}")
         print(f"mean height: {torch.mean(height)}")
