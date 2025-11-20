@@ -5,7 +5,7 @@ class GO1GaitCfg(BaseGaitCfg):
         mesh_type = 'plane' # "heightfield" # none, plane, heightfield or trimesh
     
     class init_state( BaseGaitCfg.init_state ):
-        pos = [0.0, 0.0, 0.42] # x,y,z [m]
+        pos = [0.0, 0.0, 0.36] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
             'FL_hip_joint': 0.1,   # [rad]
             'RL_hip_joint': 0.1,   # [rad]

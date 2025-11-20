@@ -38,7 +38,7 @@ import os
 
 from legged_gym.utils.task_registry import task_registry
 
-task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
+# task_registry.register( "a1", LeggedRobot, A1RoughCfg(), A1RoughCfgPPO() )
 
 
 from legged_gym.envs.a1.a1_gait import A1GaitCfg, A1GaitCfgPPO

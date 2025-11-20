@@ -27,6 +27,7 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
     env_cfg.domain_rand.disturbance = False
     env_cfg.domain_rand.push_robots = False
     env_cfg.commands.heading_command = False
+    env_cfg.commands.resampling_time = env_cfg.env.episode_length_s
     # env_cfg.terrain.mesh_type = 'plane'
     # prepare environment
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -57,14 +58,30 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
     camera_direction = np.array(env_cfg.viewer.lookat) - np.array(env_cfg.viewer.pos)
     img_idx = 0
 
+    cur_x_vel = x_vel
+    interval = max(1, env.max_episode_length // 2)
+
     for i in range(10*int(env.max_episode_length)):
     
         actions = policy(obs.detach())
-        env.commands[:, 0] = x_vel
+        if i == 0:
+            cur_x_vel = x_vel
+        elif i % interval == 0:
+            if cur_x_vel >= 1.0:
+                cur_x_vel = 0.0
+            else:
+                cur_x_vel = cur_x_vel + 0.25
+
+        env.commands[:, 0] = cur_x_vel
         env.commands[:, 1] = y_vel
         env.commands[:, 2] = yaw_vel
         obs, _, rews, dones, infos = env.step(actions.detach())
-
+        # obs, _, rews, dones, infos = env.step(torch.zeros_like(actions.detach()))
+        height = env._get_base_heights()
+        print(f"height.shape: {height.shape}")
+        print(f"mean height: {torch.mean(height)}")
+        print(f"{i % interval}")
+        print(f"Step {i}, Current X Velocity: {cur_x_vel}")
         if RECORD_FRAMES:
             if i % 2:
                 filename = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'frames', f"{img_idx}.png")
@@ -106,4 +123,4 @@ if __name__ == '__main__':
     RECORD_FRAMES = False
     MOVE_CAMERA = False
     args = get_args()
-    play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.1)
+    play(args, x_vel=0.0, y_vel=0.0, yaw_vel=0.0)
