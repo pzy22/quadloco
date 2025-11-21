@@ -4,6 +4,19 @@ class A1GaitCfg(BaseGaitCfg):
     class terrain( BaseGaitCfg.terrain ):
         mesh_type = 'plane'  # plane, heightfield, trimesh
 
+    class domain_rand( BaseGaitCfg.domain_rand ):
+        randomize_payload_mass = True
+        randomize_com_displacement = True
+        randomize_link_mass = False
+        randomize_friction = True
+        randomize_restitution = False
+        randomize_motor_strength = True
+        randomize_kp = True
+        randomize_kd = True
+        randomize_initial_joint_pos = True
+        disturbance = True
+        push_robots = True
+
     class init_state( BaseGaitCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -65,16 +78,16 @@ class A1GaitCfg(BaseGaitCfg):
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
             orientation = -0.2
-            dof_acc = -2.5e-7
+            dof_acc = -1e-6 #-2.5e-7
             joint_power = -2e-5
-            base_height = -5.0
-            foot_clearance = -0.0#-0.1 #-0.01
-            action_rate = -0.01
-            smoothness = -0.01
+            base_height = -50.0
+            foot_clearance = -0.1#-0.1 #-0.01
+            action_rate = -0.1#-0.01
+            smoothness = -0.1#-0.01
             feet_air_time =  0.0
             collision = -0.0
             feet_stumble = -0.0
-            stand_still = -1.0
+            stand_still = -0.5
             torques = -0.0
             dof_vel = -0.0#-1e-4
             dof_pos_limits = -0.0

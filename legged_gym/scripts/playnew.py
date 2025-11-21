@@ -59,7 +59,7 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
     img_idx = 0
 
     cur_x_vel = x_vel
-    interval = max(1, env.max_episode_length // 2)
+    interval = max(1, env.max_episode_length // 8)
 
     for i in range(10*int(env.max_episode_length)):
     
@@ -71,6 +71,16 @@ def play(args, x_vel=1.0, y_vel=0.0, yaw_vel=0.0):
                 cur_x_vel = 0.0
             else:
                 cur_x_vel = cur_x_vel + 0.25
+
+        # if i == 0:
+        #     cur_x_vel = 1.0
+        # elif i % interval == 0:
+        #     if cur_x_vel > 0.0:
+        #         cur_x_vel = cur_x_vel - 0.25
+        #     elif cur_x_vel == 0.0:
+        #         cur_x_vel = 0.0
+                
+
 
         env.commands[:, 0] = cur_x_vel
         env.commands[:, 1] = y_vel
