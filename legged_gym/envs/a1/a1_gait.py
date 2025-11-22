@@ -78,12 +78,12 @@ class A1GaitCfg(BaseGaitCfg):
             lin_vel_z = -2.0
             ang_vel_xy = -0.05
             orientation = -0.2
-            dof_acc = -1e-6 #-2.5e-7
+            dof_acc = -1e-6 #-2.5e-7 #
             joint_power = -2e-5
             base_height = -50.0
-            foot_clearance = -0.1#-0.1 #-0.01
-            action_rate = -0.1#-0.01
-            smoothness = -0.1#-0.01
+            foot_clearance = -0.01 #-0.1 #
+            action_rate = -0.01 #0.1#
+            smoothness = -0.01 #-0.1#
             feet_air_time =  0.0
             collision = -0.0
             feet_stumble = -0.0
@@ -99,7 +99,7 @@ class A1GaitCfg(BaseGaitCfg):
         soft_dof_pos_limit = 0.95 # percentage of urdf limits, values above this limit are penalized
         soft_dof_vel_limit = 0.95
         soft_torque_limit = 0.95
-        base_height_target = 0.27
+        base_height_target = 0.26
         max_contact_force = 100. # forces above this value are penalized
         clearance_height_target = -0.2
 
@@ -109,5 +109,5 @@ class A1GaitCfgPPO( BaseGaitCfgPPO ):
     class runner( BaseGaitCfgPPO.runner ):
         run_name = ''
         num_steps_per_env = 50
-        max_iterations = 1000
+        max_iterations = 1500
         experiment_name = 'a1_basegait'
