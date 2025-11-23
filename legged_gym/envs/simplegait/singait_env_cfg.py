@@ -9,8 +9,8 @@ class SinGaitCfg(BaseConfig):
         offsets = {"trot": [0.0, 0.5, 0.5, 0.0]}
     class env:
         num_envs = 4096
-        num_observations = 48 + 12 + 8
-        num_privileged_obs = 48 + 12 + 8 + 1 + 3 + 1 + 1 + 1 + 3*17 + 3# randomize Payload 1, Com Displacement 3,  Friction 1, Motor Strength 1, Kp 1, Kd 1, Disturbance 3, Push Velocity 3
+        num_observations = 48 # + 12 + 8
+        num_privileged_obs = 235 # 48 + 12 + 8 + 1 + 3 + 1 + 1 + 1 + 0 + 3# randomize Payload 1, Com Displacement 3,  Friction 1, Motor Strength 1, Kp 1, Kd 1, Disturbance 3, Push Velocity 3
         num_actions = 12
         env_spacing = 3.  # not used with heightfields/trimeshes 
         send_timeouts = True # send time out information to the algorithm
@@ -242,7 +242,7 @@ class SinGaitCfgPPO(BaseConfig):
         max_iterations = 3000
 
         # logging
-        save_interval = 20 # check for potential saves every this many iterations
+        save_interval = 50 # check for potential saves every this many iterations
         experiment_name = 'test'
         run_name = ''
         # load and resume

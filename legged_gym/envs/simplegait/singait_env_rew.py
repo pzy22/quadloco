@@ -17,7 +17,8 @@ class SinGaitEnv(BaseGaitEnv):
         
         self.desired_contact_states = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device, 
                                                 requires_grad=False)
-        
+
+
     def compute_observations(self):
         """ Computes observations
         """
@@ -53,69 +54,66 @@ class SinGaitEnv(BaseGaitEnv):
     #                             self.dof_vel * self.obs_scales.dof_vel,
     #                             self.actions
     #                             ),dim=-1)
-    #     # add perceptive inputs if not blind
-    #     # if self.cfg.terrain.measure_heights:
-    #     #     heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
-    #     #     obs_buf = torch.cat((obs_buf, heights), dim=-1)
 
-    #     # obs_buf = torch.cat((obs_buf,
-    #     #                     self.last_actions), dim=-1)
 
-    #     # obs_buf = torch.cat((obs_buf, 
-    #     #                     self.clock_inputs), dim=-1)
+    #     obs_buf = torch.cat((obs_buf,
+    #                         self.last_actions), dim=-1)
 
-    #     # privileged_obs_buf = obs_buf
-    #     # if self.cfg.domain_rand.randomize_payload_mass:
-    #     #     payload_scale, payload_shift = get_scale_shift(self.cfg.domain_rand.payload_mass_range)
-    #     #     # print(privileged_obs_buf.shape)
-    #     #     # print(self.payload.shape)
-    #     #     # print(self.payload.shape)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.payload - payload_shift) * payload_scale),
-    #     #                                     dim=-1)
+    #     obs_buf = torch.cat((obs_buf, 
+    #                         self.clock_inputs), dim=-1)
 
-    #     # if self.cfg.domain_rand.randomize_com_displacement:
-    #     #     com_scale, com_shift = get_scale_shift(self.cfg.domain_rand.com_displacement_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.com_displacement - com_shift) * com_scale),
-    #     #                                     dim=-1)
+    #     privileged_obs_buf = obs_buf
+    #     if self.cfg.domain_rand.randomize_payload_mass:
+    #         payload_scale, payload_shift = get_scale_shift(self.cfg.domain_rand.payload_mass_range)
+    #         # print(privileged_obs_buf.shape)
+    #         # print(self.payload.shape)
+    #         # print(self.payload.shape)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.payload - payload_shift) * payload_scale),
+    #                                         dim=-1)
 
-    #     # if self.cfg.domain_rand.randomize_friction:
-    #     #     friction_scale, friction_shift = get_scale_shift(self.cfg.domain_rand.friction_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.friction_coeffs - friction_shift) * friction_scale),
-    #     #                                     dim=-1)
+    #     if self.cfg.domain_rand.randomize_com_displacement:
+    #         com_scale, com_shift = get_scale_shift(self.cfg.domain_rand.com_displacement_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.com_displacement - com_shift) * com_scale),
+    #                                         dim=-1)
+
+    #     if self.cfg.domain_rand.randomize_friction:
+    #         friction_scale, friction_shift = get_scale_shift(self.cfg.domain_rand.friction_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.friction_coeffs - friction_shift) * friction_scale),
+    #                                         dim=-1)
             
-    #     # if self.cfg.domain_rand.randomize_motor_strength:
-    #     #     motor_strength_scale, motor_strength_shift = get_scale_shift(self.cfg.domain_rand.motor_strength_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.motor_strength_factors - motor_strength_shift) * motor_strength_scale),
-    #     #                                     dim=-1)
+    #     if self.cfg.domain_rand.randomize_motor_strength:
+    #         motor_strength_scale, motor_strength_shift = get_scale_shift(self.cfg.domain_rand.motor_strength_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.motor_strength_factors - motor_strength_shift) * motor_strength_scale),
+    #                                         dim=-1)
             
-    #     # if self.cfg.domain_rand.randomize_kp:
-    #     #     kp_scale, kp_shift = get_scale_shift(self.cfg.domain_rand.kp_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.Kp_factors - kp_shift) * kp_scale),
-    #     #                                     dim=-1)
+    #     if self.cfg.domain_rand.randomize_kp:
+    #         kp_scale, kp_shift = get_scale_shift(self.cfg.domain_rand.kp_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.Kp_factors - kp_shift) * kp_scale),
+    #                                         dim=-1)
             
-    #     # if self.cfg.domain_rand.randomize_kd:
-    #     #     kd_scale, kd_shift = get_scale_shift(self.cfg.domain_rand.kd_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.Kd_factors - kd_shift) * kd_scale),
-    #     #                                     dim=-1)
+    #     if self.cfg.domain_rand.randomize_kd:
+    #         kd_scale, kd_shift = get_scale_shift(self.cfg.domain_rand.kd_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.Kd_factors - kd_shift) * kd_scale),
+    #                                         dim=-1)
             
-    #     # if self.cfg.domain_rand.disturbance:
-    #     #     disturbance_scale, disturbance_shift = get_scale_shift(self.cfg.domain_rand.disturbance_range)
+    #     if self.cfg.domain_rand.disturbance:
+    #         disturbance_scale, disturbance_shift = get_scale_shift(self.cfg.domain_rand.disturbance_range)
 
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    ((self.disturbance - disturbance_shift) * disturbance_scale).view(self.num_envs, -1)),
-    #     #                                     dim=-1)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        ((self.disturbance - disturbance_shift) * disturbance_scale).view(self.num_envs, -1)),
+    #                                         dim=-1)
 
-    #     # if self.cfg.domain_rand.push_robots:
-    #     #     push_vel_scale, push_vel_shift = get_scale_shift(self.cfg.domain_rand.push_vel_xy_range)
-    #     #     privileged_obs_buf = torch.cat((privileged_obs_buf,
-    #     #                                    (self.rand_push_vels[:, :2] - push_vel_shift) * push_vel_scale),
-    #     #                                     dim=-1)
+    #     if self.cfg.domain_rand.push_robots:
+    #         push_vel_scale, push_vel_shift = get_scale_shift(self.cfg.domain_rand.push_vel_xy_range)
+    #         privileged_obs_buf = torch.cat((privileged_obs_buf,
+    #                                        (self.rand_push_vels[:, :2] - push_vel_shift) * push_vel_scale),
+    #                                         dim=-1)
 
     #     if self.add_noise:
     #         obs_buf = obs_buf.clone()
@@ -123,7 +121,7 @@ class SinGaitEnv(BaseGaitEnv):
     #         obs_buf += (2 * torch.rand_like(obs_buf) - 1) * self.noise_scale_vec
 
     #     self.obs_buf = obs_buf
-    #     #self.privileged_obs_buf = privileged_obs_buf
+    #     self.privileged_obs_buf = privileged_obs_buf
 
 
     def _post_physics_step_callback(self):
@@ -137,9 +135,11 @@ class SinGaitEnv(BaseGaitEnv):
             forward = quat_apply(self.base_quat, self.forward_vec)
             heading = torch.atan2(forward[:, 1], forward[:, 0])
             self.commands[:, 2] = torch.clip(0.5*wrap_to_pi(self.commands[:, 3] - heading), -2., 2.)
+        
         ##### 单一Gait 相关的参数更新 #####
         self._step_contact_targets()
         ##### -------------------- #####
+        
         if self.cfg.terrain.measure_heights:
             self.measured_heights = self._get_heights()
         if self.cfg.domain_rand.push_robots and  (self.common_step_counter % self.cfg.domain_rand.push_interval == 0):
@@ -237,3 +237,18 @@ class SinGaitEnv(BaseGaitEnv):
         # noise_vec[48:60] = 0. # previous actions
         # noise_vec[60:68] = 0. # clock inputs
         return noise_vec
+
+
+
+    # def _reward_action_smoothness_1(self):
+    #     # Penalize changes in actions
+    #     diff = torch.square(self.joint_pos_target[:, :self.num_actuated_dof] - self.last_joint_pos_target[:, :self.num_actuated_dof])
+    #     diff = diff * (self.last_actions[:, :self.num_dof] != 0)  # ignore first step
+    #     return torch.sum(diff, dim=1)
+    
+    # def _reward_action_smoothness_2(self):
+    #     # Penalize changes in actions
+    #     diff = torch.square(self.joint_pos_target[:, :self.num_actuated_dof] - 2 * self.last_joint_pos_target[:, :self.num_actuated_dof] + self.last_last_joint_pos_target[:, :self.num_actuated_dof])
+    #     diff = diff * (self.last_actions[:, :self.num_dof] != 0)  # ignore first step
+    #     diff = diff * (self.last_last_actions[:, :self.num_dof] != 0)  # ignore second step
+    #     return torch.sum(diff, dim=1)

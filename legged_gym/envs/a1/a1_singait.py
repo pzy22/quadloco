@@ -4,6 +4,9 @@ class A1SinGaitCfg(SinGaitCfg):
     class terrain( SinGaitCfg.terrain ):
         mesh_type = 'plane'  # plane, heightfield, trimesh
 
+    class env( SinGaitCfg.env ):
+        num_observations = 48
+
     class domain_rand( SinGaitCfg.domain_rand ):
         randomize_payload_mass = True
         randomize_com_displacement = True
@@ -110,5 +113,5 @@ class A1SinGaitCfgPPO( SinGaitCfgPPO ):
     class runner( SinGaitCfgPPO.runner ):
         run_name = ''
         num_steps_per_env = 50
-        max_iterations = 1500
-        experiment_name = 'a1_singait'
+        max_iterations = 1000
+        experiment_name = 'a1_singait_worew'
