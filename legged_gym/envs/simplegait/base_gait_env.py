@@ -18,10 +18,10 @@ from legged_gym.envs.base.base_task import BaseTask
 from legged_gym.utils.terrain import Terrain
 from legged_gym.utils.math import quat_apply_yaw, wrap_to_pi, torch_rand_sqrt_float
 from legged_gym.utils.helpers import class_to_dict
-from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg
+from legged_gym.envs.simplegait.base_gait_cfg import BaseGaitCfg
 
 class BaseGaitEnv(BaseTask):
-    def __init__(self, cfg: LeggedRobotCfg, sim_params, physics_engine, sim_device, headless):
+    def __init__(self, cfg: BaseGaitCfg, sim_params, physics_engine, sim_device, headless):
         """ Parses the provided config file,
             calls create_sim() (which creates, simulation, terrain and environments),
             initilizes pytorch buffers used during training
@@ -458,7 +458,9 @@ class BaseGaitEnv(BaseTask):
         """ Random pushes the robots. Emulates an impulse by setting a randomized base velocity. 
         """
         max_vel = self.cfg.domain_rand.max_push_vel_xy
-        self.root_states[:, 7:9] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device) # lin vel x/y
+        self.rand_push_vels[:, :2] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device)
+
+        self.root_states[:, 7:9] = self.rand_push_vels[:, :2] # lin vel x/y
         self.gym.set_actor_root_state_tensor(self.sim, gymtorch.unwrap_tensor(self.root_states))
 
     def _disturbance_robots(self):
@@ -614,6 +616,9 @@ class BaseGaitEnv(BaseTask):
         self.com_displacement = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
         self.disturbance = torch.zeros(self.num_envs, self.num_bodies, 3, dtype=torch.float, device=self.device, requires_grad=False)
         
+        self.rand_push_vels = torch.zeros(self.num_envs, 3, dtype=torch.float, device=self.device, requires_grad=False)
+
+
         if self.cfg.domain_rand.randomize_kp:
             self.Kp_factors = torch_rand_float(self.cfg.domain_rand.kp_range[0], self.cfg.domain_rand.kp_range[1], (self.num_envs, 1), device=self.device)
         if self.cfg.domain_rand.randomize_kd:

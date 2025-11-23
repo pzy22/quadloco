@@ -1,18 +1,23 @@
 from legged_gym.envs.base.base_config import BaseConfig
 
 
-class BaseGaitCfg(BaseConfig):
+class SinGaitCfg(BaseConfig):
+    class gait:
+        frequency = 2.0  # [Hz]
+        duration = 0.5 
+        target_gait  = "trot"
+        offsets = {"trot": [0.0, 0.5, 0.5, 0.0]}
     class env:
         num_envs = 4096
-        num_observations = 235
-        num_privileged_obs = None # if not None a priviledge_obs_buf will be returned by step() (critic obs for assymetric training). None is returned otherwise 
+        num_observations = 48 + 12 + 8
+        num_privileged_obs = 48 + 12 + 8 + 1 + 3 + 1 + 1 + 1 + 3*17 + 3# randomize Payload 1, Com Displacement 3,  Friction 1, Motor Strength 1, Kp 1, Kd 1, Disturbance 3, Push Velocity 3
         num_actions = 12
         env_spacing = 3.  # not used with heightfields/trimeshes 
         send_timeouts = True # send time out information to the algorithm
         episode_length_s = 20 # episode length in seconds
 
     class terrain:
-        mesh_type = 'trimesh' # "heightfield" # none, plane, heightfield or trimesh
+        mesh_type = 'plane' # "heightfield" # none, plane, heightfield or trimesh
         horizontal_scale = 0.1 # [m]
         vertical_scale = 0.005 # [m]
         border_size = 25 # [m]
@@ -153,8 +158,7 @@ class BaseGaitCfg(BaseConfig):
         base_height_target = 1.
         max_contact_force = 100. # forces above this value are penalized
         clearance_height_target = 0.09
-        
-
+        kappa_gait_probs = 0.07
 
     class normalization:
         class obs_scales:
@@ -202,7 +206,7 @@ class BaseGaitCfg(BaseConfig):
             default_buffer_size_multiplier = 5
             contact_collection = 2 # 0: never, 1: last sub-step, 2: all sub-steps (default=2)
 
-class BaseGaitCfgPPO(BaseConfig):
+class SinGaitCfgPPO(BaseConfig):
     seed = 1
     runner_class_name = 'OnPolicyRunner'
     class policy:
