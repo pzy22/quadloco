@@ -1,11 +1,19 @@
 from legged_gym.envs.simplegait.base_gait_env import BaseGaitEnv
 from isaacgym.torch_utils import torch_rand_float, quat_apply, quat_from_angle_axis, quat_mul, quat_rotate_inverse, quat_conjugate
 from legged_gym.utils.math import wrap_to_pi, get_scale_shift, quat_apply_yaw
+from legged_gym.envs.simplegait.singait_wtwenv_cfg import SinGaitWtwCfg
 import torch
 
 
 class SinGait_WtwEnv(BaseGaitEnv):
     
+    def __init__(self, cfg:SinGaitWtwCfg, sim_params, physics_engine, sim_device, headless):
+
+        super().__init__(cfg, sim_params, physics_engine, sim_device, headless)
+        self.rew_buf_pos = self.rew_buf.clone()
+        self.rew_buf_neg = self.rew_buf.clone()
+
+
     def _init_buffers(self):
         super()._init_buffers()
         
@@ -28,12 +36,22 @@ class SinGait_WtwEnv(BaseGaitEnv):
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions,
+                                    self.last_actions,
+                                    self.clock_inputs
                                     ),dim=-1)
         
-        self.obs_buf = torch.cat((self.obs_buf,
-                                  self.clock_inputs), dim=-1)
+
 
         self.privileged_obs_buf = self.obs_buf.clone()
+
+        # 加入 Gait Desired Contact States 信息
+        self.privileged_obs_buf = torch.cat((self.privileged_obs_buf,
+                                             self.desired_contact_states), dim=-1)
+        
+        # 加入 Delta Desired Body Height 信息
+        body_height_scale, body_height_shift = get_scale_shift(self.cfg.normalization.body_height_range)
+        self.privileged_obs_buf = torch.cat((self.privileged_obs_buf,
+                                             ((self.root_states[:self.num_envs, 2]).view(self.num_envs, -1) - body_height_shift) * body_height_scale), dim=-1)
         # add perceptive inputs if not blind
         if self.cfg.terrain.measure_heights:
             heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.) * self.obs_scales.height_measurements
@@ -158,6 +176,14 @@ class SinGait_WtwEnv(BaseGaitEnv):
 
 
 
+    def _resample_commands(self, env_ids):
+        super()._resample_commands(env_ids)
+
+        # reset command sums
+        for key in self.command_sums.keys():
+            self.command_sums[key][env_ids] = 0.
+
+
 
     def _step_contact_targets(self):
         # 单一Gait Parameters
@@ -237,12 +263,84 @@ class SinGait_WtwEnv(BaseGaitEnv):
         noise_vec[12:24] = noise_scales.dof_pos * noise_level * self.obs_scales.dof_pos
         noise_vec[24:36] = noise_scales.dof_vel * noise_level * self.obs_scales.dof_vel
         noise_vec[36:48] = 0. # previous actions
-        # noise_vec[48:60] = 0. # previous actions
-        # noise_vec[60:68] = 0. # clock inputs
+        noise_vec[48:60] = 0. # previous actions
+        noise_vec[60:68] = 0. # clock inputs
         return noise_vec
     
 
+
+
+
     # ------------ Walk These Ways 摘取 Reward Functions----------------
+
+
+    def _prepare_reward_function(self):
+        # remove zero scales + multiply non-zero ones by dt
+        for key in list(self.reward_scales.keys()):
+            scale = self.reward_scales[key]
+            if scale==0:
+                self.reward_scales.pop(key) 
+            else:
+                self.reward_scales[key] *= self.dt
+        # prepare list of functions
+        self.reward_functions = []
+        self.reward_names = []
+        for name, scale in self.reward_scales.items():
+            if name=="termination":
+                continue
+            self.reward_names.append(name)
+            name = '_reward_' + name
+            self.reward_functions.append(getattr(self, name))
+
+        # reward episode sums
+        self.episode_sums = {name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+                             for name in self.reward_scales.keys()}    
+        self.episode_sums["total"] = torch.zeros(self.num_envs, dtype=torch.float, device=self.device,
+                                                 requires_grad=False)
+        self.command_sums = {
+            name: torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
+            for name in
+            list(self.reward_scales.keys()) + ["lin_vel_raw", "ang_vel_raw", "lin_vel_residual", "ang_vel_residual",
+                                               "ep_timesteps"]}
+
+
+    def compute_reward(self):
+        self.rew_buf[:] = 0.
+        self.rew_buf_pos[:] = 0.
+        self.rew_buf_neg[:] = 0.
+        for i in range(len(self.reward_functions)):
+            name = self.reward_names[i]
+            rew = self.reward_functions[i]() * self.reward_scales[name]
+            self.rew_buf += rew
+            if torch.sum(rew) >= 0:
+                self.rew_buf_pos += rew
+            elif torch.sum(rew) <= 0:
+                self.rew_buf_neg += rew
+            self.episode_sums[name] += rew
+            if name in ['tracking_contacts_shaped_force', 'tracking_contacts_shaped_vel']:
+                self.command_sums[name] += self.reward_scales[name] + rew
+            else:
+                self.command_sums[name] += rew
+        if self.cfg.rewards.only_positive_rewards:
+            self.rew_buf[:] = torch.clip(self.rew_buf[:], min=0.)
+        elif self.cfg.rewards.only_positive_rewards_ji22_style: #TODO: update
+            self.rew_buf[:] = self.rew_buf_pos[:] * torch.exp(self.rew_buf_neg[:] / self.cfg.rewards.sigma_rew_neg)
+        self.episode_sums["total"] += self.rew_buf
+
+        if "termination" in self.reward_scales:
+            rew = self._reward_termination() * self.reward_scales["termination"]
+            self.rew_buf += rew
+            self.episode_sums["termination"] += rew
+            self.command_sums["termination"] += rew
+
+        self.command_sums["lin_vel_raw"] += self.base_lin_vel[:, 0]
+        self.command_sums["ang_vel_raw"] += self.base_ang_vel[:, 2]
+        self.command_sums["lin_vel_residual"] += (self.base_lin_vel[:, 0] - self.commands[:, 0]) ** 2
+        self.command_sums["ang_vel_residual"] += (self.base_ang_vel[:, 2] - self.commands[:, 2]) ** 2
+        self.command_sums["ep_timesteps"] += 1
+
+
+
     def _reward_tracking_lin_vel(self):
         # Tracking of linear velocity commands (xy axes)
         lin_vel_error = torch.sum(torch.square(self.commands[:, :2] - self.base_lin_vel[:, :2]), dim=1)
@@ -289,7 +387,7 @@ class SinGait_WtwEnv(BaseGaitEnv):
 
 
     def _reward_jump(self):
-        # [NOTE] _reward_base_height 的替代版
+        # [NOTE] def _reward_base_height 的替代版
         reference_heights = 0
         body_height = self.base_pos[:, 2] - reference_heights
         jump_height_target = self.cfg.rewards.base_height_target # + self.commands[:, 3]
@@ -363,12 +461,12 @@ class SinGait_WtwEnv(BaseGaitEnv):
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :],
                                      dim=-1) - self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
 
-    def _reward_feet_clearance_cmd_linear(self):
+    def _reward_footswing_cmd_linear(self):
         # def _reward_feet_clearance_cmd_linear 去掉command控制
         # [NOTE] def _reward_foot_clearance 另一种实现
         phases = 1 - torch.abs(1.0 - torch.clip((self.foot_indices * 2.0) - 1.0, 0.0, 1.0) * 2.0)
         foot_height = (self.feet_pos[:, :, 2]).view(self.num_envs, -1)# - reference_heights
-        target_swing_height = self.cfg.rewards.clearance_height_target * phases + 0.02  # offset for foot radius 2cm
+        target_swing_height = self.cfg.rewards.footswing_height_target * phases + 0.02  # offset for foot radius 2cm
         rew_foot_clearance = torch.square(target_swing_height - foot_height) * (1 - self.desired_contact_states)
         return torch.sum(rew_foot_clearance, dim=1)
 
@@ -394,10 +492,10 @@ class SinGait_WtwEnv(BaseGaitEnv):
                                                               cur_footsteps_translated[:, i, :])
 
         desired_stance_width = 0.3
-        desired_ys_nom = torch.tensor([desired_stance_width / 2,  -desired_stance_width / 2, desired_stance_width / 2, -desired_stance_width / 2], device=self.env.device).unsqueeze(0)
+        desired_ys_nom = torch.tensor([desired_stance_width / 2,  -desired_stance_width / 2, desired_stance_width / 2, -desired_stance_width / 2], device=self.device).unsqueeze(0)
 
         desired_stance_length = 0.45
-        desired_xs_nom = torch.tensor([desired_stance_length / 2,  desired_stance_length / 2, -desired_stance_length / 2, -desired_stance_length / 2], device=self.env.device).unsqueeze(0)
+        desired_xs_nom = torch.tensor([desired_stance_length / 2,  desired_stance_length / 2, -desired_stance_length / 2, -desired_stance_length / 2], device=self.device).unsqueeze(0)
 
         # raibert offsets
         phases = torch.abs(1.0 - (self.foot_indices * 2.0)) * 1.0 - 0.5
@@ -456,7 +554,7 @@ class SinGait_WtwEnv(BaseGaitEnv):
         self.feet_air_time *= ~contact_filt
         return rew_airTime
     
-    def _reward_stumble(self):
+    def _reward_feet_stumble(self):
         # Penalize feet hitting vertical surfaces
         return torch.any(torch.norm(self.contact_forces[:, self.feet_indices, :2], dim=2) >\
              5 *torch.abs(self.contact_forces[:, self.feet_indices, 2]), dim=1)
