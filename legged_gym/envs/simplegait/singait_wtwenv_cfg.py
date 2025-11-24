@@ -6,7 +6,10 @@ class SinGaitWtwCfg(BaseConfig):
         frequency = 2.0  # [Hz]
         duration = 0.5 
         target_gait  = "trot"
-        offsets = {"trot": [0.0, 0.5, 0.5, 0.0]}
+        offsets = {"trot":  [0.0, 0.5, 0.5, 0.0],
+                   "pronk": [0.0, 0.0, 0.0, 0.0],
+                   "pace":  [0.0, 0.5, 0.5, 0.0],
+                   "bound": [0.0, 0.0, 0.5, 0.5]}
     class env:
         num_envs = 4096
         num_observations = 48 # + 12 + 8

@@ -7,11 +7,11 @@ HIEGHET_MEASURE_DIM = 235-48
 CONTACT_DIM = 4
 BODY_HEIGHT_DIM = 1
 class A1SinGaitWtwCfg(SinGaitWtwCfg):
-    class gait:
+    class gait( SinGaitWtwCfg.gait ):
         frequency = 2.0  # [Hz]
         duration = 0.5 
-        target_gait  = "trot"
-        offsets = {"trot": [0.0, 0.5, 0.5, 0.0]}
+        target_gait  = "bound"
+
     
     class env( SinGaitWtwCfg.env ):
         num_observations = PROPRIOCEPTION_DIM + LAST_ACTION_DIM + CLOCK_INPUTS_DIM
@@ -92,13 +92,13 @@ class A1SinGaitWtwCfg(SinGaitWtwCfg):
             termination = -0.0
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
-            lin_vel_z = -0.02
-            ang_vel_xy = -0.001
+            lin_vel_z = -2.0#-0.02
+            ang_vel_xy = -0.05#-0.001
             orientation = -0.2
             dof_acc = -1e-6 #-2.5e-7 #
-            dof_vel = -1e-4
+            dof_vel = -0.0#-1e-4
             base_height = - 0.0
-            jump = 10.0 # 和base_height一样的implementation
+            jump = 50.0 # 和base_height一样的implementation
 
             feet_contact_forces = 0.0
             feet_slip = -0.04
@@ -113,7 +113,7 @@ class A1SinGaitWtwCfg(SinGaitWtwCfg):
             collision = -5.0
 
             action_rate = -0.01
-            stand_still = -0.5
+            stand_still = -0.0
 
         only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
         only_positive_rewards_ji22_style = False

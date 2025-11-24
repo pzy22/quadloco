@@ -52,9 +52,9 @@ task_registry.register( "go1_gait", BaseGaitEnv, GO1GaitCfg(), GO1GaitCfgPPO() )
 # from legged_gym.envs.collect.env_rew_himloco import CollectEnvHimlocoRew
 # task_registry.register( "a1rl_himloco", CollectEnvHimlocoRew, A1HimlocoCfg(), A1HimlocoCfgPPO() )
 
-from legged_gym.envs.a1.a1_singait import A1SinGaitCfg, A1SinGaitCfgPPO
-from legged_gym.envs.simplegait.singait_env import SinGaitEnv
-task_registry.register( "a1_singait", SinGaitEnv, A1SinGaitCfg(), A1SinGaitCfgPPO() )
+# from legged_gym.envs.a1.a1_singait import A1SinGaitCfg, A1SinGaitCfgPPO
+# from legged_gym.envs.simplegait.deprecated.singait_env import SinGaitEnv
+# task_registry.register( "a1_singait", SinGaitEnv, A1SinGaitCfg(), A1SinGaitCfgPPO() )
 
 from legged_gym.envs.a1.a1_singait_wtw_config import A1SinGaitWtwCfg, A1SinGaitWtwCfgPPO
 from legged_gym.envs.simplegait.singait_wtwenv import SinGait_WtwEnv

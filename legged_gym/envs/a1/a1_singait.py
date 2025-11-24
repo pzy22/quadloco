@@ -1,4 +1,4 @@
-from legged_gym.envs.simplegait.singait_env_cfg import SinGaitCfg, SinGaitCfgPPO
+from legged_gym.envs.simplegait.deprecated.singait_env_cfg import SinGaitCfg, SinGaitCfgPPO
 
 class A1SinGaitCfg(SinGaitCfg):
     class terrain( SinGaitCfg.terrain ):
