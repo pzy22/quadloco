@@ -56,6 +56,15 @@ task_registry.register( "go1_gait", BaseGaitEnv, GO1GaitCfg(), GO1GaitCfgPPO() )
 # from legged_gym.envs.simplegait.deprecated.singait_env import SinGaitEnv
 # task_registry.register( "a1_singait", SinGaitEnv, A1SinGaitCfg(), A1SinGaitCfgPPO() )
 
-from legged_gym.envs.a1.a1_singait_wtw_config import A1SinGaitWtwCfg, A1SinGaitWtwCfgPPO
+from legged_gym.envs.a1task.a1_veltrack import A1VelTrackCfg, A1VelTrackCfgPPO
+from legged_gym.envs.simplegait.singait_env import SinGaitEnv
+task_registry.register( "a1_veltrack", SinGaitEnv, A1VelTrackCfg(), A1VelTrackCfgPPO() )
+
+
 from legged_gym.envs.simplegait.singait_wtwenv import SinGait_WtwEnv
-task_registry.register( "a1_singait_wtw", SinGait_WtwEnv, A1SinGaitWtwCfg(), A1SinGaitWtwCfgPPO() )
+from legged_gym.envs.a1task.a1_singait_trot_wtw_config import A1TrotWtwCfg, A1TrotWtwCfgPPO
+from legged_gym.envs.a1task.a1_singait_pace_wtw_config import A1PaceWtwCfg, A1PaceWtwCfgPPO
+
+
+task_registry.register( "a1_trot_wtw", SinGait_WtwEnv, A1TrotWtwCfg(), A1TrotWtwCfgPPO() )
+task_registry.register( "a1_pace_wtw", SinGait_WtwEnv, A1PaceWtwCfg(), A1PaceWtwCfgPPO() )
