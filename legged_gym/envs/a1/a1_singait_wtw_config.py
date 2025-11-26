@@ -116,7 +116,7 @@ class A1SinGaitWtwCfg(SinGaitWtwCfg):
             stand_still = -0.0
 
         only_positive_rewards = False # if true negative total rewards are clipped at zero (avoids early termination problems)
-        only_positive_rewards_ji22_style = False
+        only_positive_rewards_ji22_style = True
         sigma_rew_neg = 0.02
 
         kappa_gait_probs = 0.07
